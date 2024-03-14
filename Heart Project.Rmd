@@ -1,0 +1,396 @@
+---
+title: "Heart Project"
+author: "Luke Austin"
+date: "2024-03-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+The data set "Heart" comes from https://www.kaggle.com/ronitf/heart-disease-uci. It has info about patients and whether or not they have heart disease. The variable target is 1 if the patient has heart disease and 0 if they do not. The data was split into a training and test set ahead of time.  Use the training data to find a logistic regression model that has a high prediction accuracy for predicting the presence/absence of heart disease on the training data. Use your model to make predictions for the test data and report your prediction accuracy.
+
+```{r}
+#Define parameters and make sure everything looks okay.
+heart.train<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_training.csv")
+heart.test<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_test.csv")
+#head(heart.train)
+#head(heart.test)
+#Now that we've seen our dataset, let's try to hone in on a best model. We will start by selecting everything and seeing which predictors  are significant for target
+m0<- glm(target~., family = "binomial", data= heart.train)
+#View results using summary function
+summary(m0)
+
+#Let's see if we can make a model using less predictors (only those with significance 0.05 or lower) with greater accuracy.Repeat the procedure from above
+m1<- glm(target~ sex + cp + exang + oldpeak + ca + thal, 
+         family = "binomial", data= heart.train)
+#View results using summary function
+summary(m1)
+#Use model to make predictions and report accuracy
+(acc.train1 <- table(pred = predict(m1, type = "response") > 0.5, 
+                   true = heart.train$target))
+#Correct predictions/ accuracy: already at 82.3%
+(acc.train1[1, 1] + acc.train1[2, 2])/sum(acc.train1)
+
+# Let's try another but only with the 4 most significant predictors
+m2<- glm(target~ sex + cp + oldpeak + ca, 
+         family = "binomial", data= heart.train)
+#View results using summary function
+summary(m2)
+#Use model to make predictions and report accuracy
+(acc.train2 <- table(pred = predict(m2, type = "response") > 0.5, 
+                    true = heart.train$target))
+#Correct predictions/ accuracy: 83.1%
+(acc.train2[1, 1] + acc.train2[2, 2])/sum(acc.train2)
+
+#Try one more with even less predictors, 4 is still quite a few. Let's just use the two most significant.
+m3<- glm(target~ cp + oldpeak, 
+         family = "binomial", data= heart.train)
+#View results using summary function
+summary(m3)
+#Use model to make predictions and report accuracy
+(acc.train3 <- table(pred = predict(m3, type = "response") > 0.5, 
+                    true = heart.train$target))
+#Correct predictions/ accuracy: 74.1%
+(acc.train3[1, 1] + acc.train3[2, 2])/sum(acc.train3)
+
+#Out of these models, we like m2 the best. It has the highest accuracy of m1-m3 and less predictors than m0, which uses all of the information. Now, let's see if we can make it even more accurate by adjusting the threshold.
+(acc.train2.1 <- table(pred = predict(m2, type = "response") > 0.6, 
+                    true = heart.train$target))
+(acc.train2.1[1, 1] + acc.train2.1[2, 2])/sum(acc.train2.1)
+#Correct predictions/ accuracy: 81.9%
+
+#Accuracy decreases, let's try moving the threshold the opposite direction
+(acc.train2.2 <- table(pred = predict(m2, type = "response") > 0.4, 
+                    true = heart.train$target))
+(acc.train2.2[1, 1] + acc.train2.2[2, 2])/sum(acc.train2.2)
+#Correct predictions/ accuracy: 84.4%
+
+#Accuracy is higher, try lowering the threshold further
+(acc.train2.3 <- table(pred = predict(m2, type = "response") > 0.3, 
+                    true = heart.train$target))
+(acc.train2.3[1, 1] + acc.train2.3[2, 2])/sum(acc.train2.3)
+#Correct predictions/ accuracy: 77.8%
+#Therefore, we will only lower the threshold to 0.4, not further.
+#We have our final model!
+
+#final model statement:
+glmFinal<- glm(target~ sex + cp + oldpeak + ca, 
+                family = "binomial", data= heart.train)
+summary(glmFinal)
+#Computing test data accuracy:
+(acc.final <- table(pred = predict(glmFinal, newdata= heart.test, 
+                                   type = "response") > 0.4, 
+                    true = heart.test$target))
+(acc.final[1, 1] + acc.final[2, 2])/sum(acc.final)
+```
+
+
+Separately advised: Use the training data to find a multiple logistic regression model using age, sex, cp, trestbps, thalach, exang, oldpeak, ca, and thal as predictors. Use a Bayes classificastion rule and report both the prediction training accuracy the prediction test accuracy.
+```{r}
+Heart.Train<-read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_training.csv")
+Heart.Test<-read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_test.csv")
+
+#Fit the model as required
+m0<- glm(target~ age + as.factor(sex) + as.factor(cp) + trestbps + 
+           thalach+ as.factor(exang) + oldpeak + ca + thal, 
+         family= "binomial", data = Heart.Train)
+#use a Bayes Classification Rule to report:
+#prediction training accuracy
+(acc.train0 <- table(pred = predict(m0, type = "response") > 0.5, 
+                    true = Heart.Train$target))
+(acc.train0[1, 1] + acc.train0[2, 2])/sum(acc.train0)
+#Prediction test accuracy
+(acc.test0 <- table(pred = predict(m0, newdata= Heart.Test, 
+                                    type = "response") > 0.5, 
+                    true = Heart.Test$target))
+(acc.test0[1, 1] + acc.test0[2, 2])/sum(acc.test0)
+```
+
+For plotting purposes, create a variable called heart_dis which is set to “yes” for patients with heart disease and “no” for patients without heart disease. Add this variable to training data set.
+```{r}
+heart_dis <- rep("Yes", dim(Heart.Train)[1])
+heart_dis[Heart.Train$target == 0] <- "No"
+Heart.Train$heart_dis <- heart_dis
+```
+
+Create four plots, one for each of the continuous predictors: age, trestbps, oldpeak, and thalach showing the density of the predictor for each of the two classes of heart disease status. Within each plot, use the color to create two density plots, one for each of the heart disease groups. 
+```{r}
+library(ggplot2)
+library(patchwork)
+#First, make the plot for age predictor
+#Color by the two classes of heart disease
+p.age<- ggplot(data=Heart.Train, mapping = aes(x=age)) + 
+   geom_density(aes(color=heart_dis))
+#Repeat for trestbps, oldpeak, and thalach predictors
+#Once again coloring by the two classes of heart disease in each.
+p.trestbps<- ggplot(data=Heart.Train, mapping = aes(x=trestbps)) + 
+   geom_density(aes(color=heart_dis))
+p.oldpeak<- ggplot(data=Heart.Train, mapping = aes(x=oldpeak)) + 
+   geom_density(aes(color=heart_dis))
+p.thalach<- ggplot(data=Heart.Train, mapping = aes(x=thalach)) + 
+   geom_density(aes(color=heart_dis))
+#Plot/show all plots together using patchwork package and +
+p.age + p.trestbps + p.oldpeak + p.thalach
+```
+
+Use the training data to fit an LDA model using age, sex, cp, trestbps, thalach, exang, oldpeak, ca, and thal as predictors. Use a Bayes classification rule and report both the prediction training accuracy and the prediction test accuracy.
+```{r}
+library(MASS) # package containing lda function
+#First, fit the model accordingly
+m_lda<- lda(target~ age + as.factor(sex) + as.factor(cp) + trestbps + 
+           thalach+ as.factor(exang) + oldpeak + ca + thal, 
+           data = Heart.Train)
+#Now, use Bayes classification rule to get the following
+#Prediction training accuracy
+(conf.train_lda<- table(pred=predict(m_lda)$class, 
+                        true=Heart.Train$target))
+(conf.train_lda[1, 1] + conf.train_lda[2, 2])/sum(conf.train_lda)
+#Prediction test accuracy
+(conf.test_lda <- table(pred = predict(m_lda, newdata = Heart.Test)$class,
+                        true = Heart.Test$target))
+(conf.test_lda[1, 1] + conf.test_lda[2, 2])/sum(conf.test_lda)
+```
+ 
+Repeat using QDA.
+```{r}
+#First, fit the model accordingly
+m_qda<- qda(target~ age + as.factor(sex) + as.factor(cp) + trestbps + 
+           thalach+ as.factor(exang) + oldpeak + ca + thal, 
+           data = Heart.Train)
+#Now, use Bayes classification rule to get the following
+#Prediction training accuracy
+(conf.train_qda<- table(pred=predict(m_qda)$class, 
+                        true=Heart.Train$target))
+(conf.train_qda[1, 1] + conf.train_qda[2, 2])/sum(conf.train_qda)
+#Prediction test accuracy
+(conf.test_qda <- table(pred = predict(m_qda, newdata = Heart.Test)$class,
+                        true = Heart.Test$target))
+(conf.test_qda[1, 1] + conf.test_qda[2, 2])/sum(conf.test_qda)
+```
+
+Use the knn()function to use K-nearest-neighbors with k=14 to classify the test data. Report test accuracy.
+```{r}
+#Examine documentation for knn function
+library(tidyverse)
+library(class)
+#Create new training dataset
+HTrain.knn<- Heart.Train %>% dplyr::select('target', 'age', 'sex', 'cp',
+                                   'trestbps', 'thalach', 'exang', 
+                                   'oldpeak', 'ca', 'thal')
+head(HTrain.knn)
+#Create new testing dataset
+HTest.knn<- Heart.Test%>% dplyr::select('target', 'age', 'sex', 'cp',
+                                   'trestbps', 'thalach', 'exang', 
+                                   'oldpeak', 'ca', 'thal')
+#head(HTest.knn)
+#Scale training data for age, trestbps, oldpeak, and thalach
+HTrain.knn$age<- scale(HTrain.knn$age)
+HTrain.knn$trestbps<- scale(HTrain.knn$trestbps)
+HTrain.knn$oldpeak<- scale(HTrain.knn$oldpeak)
+HTrain.knn$thalach<- scale(HTrain.knn$thalach)
+#head(HTrain.knn)
+#Scale testing data for age, trestbps, oldpeak, and thalach
+HTest.knn$age<- scale(HTest.knn$age)
+HTest.knn$trestbps<- scale(HTest.knn$trestbps)
+HTest.knn$oldpeak<- scale(HTest.knn$oldpeak)
+HTest.knn$thalach<- scale(HTest.knn$thalach)
+#head(HTest.knn)
+#Use KNN function with k=14
+m_knn<- knn(HTrain.knn[, c("age", "sex", "cp", "trestbps", "thalach", 
+                           "exang", "oldpeak", "ca", "thal")],
+            HTest.knn[,c("age", "sex", "cp", "trestbps", "thalach", 
+                           "exang", "oldpeak", "ca", "thal")], 
+            HTrain.knn$target, k= 14)
+#Calculate test accuracy first by making a confusion matrix for test data
+(conf_knn<- table(pred = m_knn, true = HTest.knn$target))
+#Now, we can calculate accuracy:
+(conf_knn[1, 1] + conf_knn[2, 2])/sum(conf_knn)
+```
+
+
+Apply boosting, bagging, and random forests to this data set. Fit the models on the training set and to evaluate their performance on the test set. How accurate are the results? Which of these approaches yields the best performance?
+```{r}
+library(tree) # trees
+library(randomForest) # random forest
+library(gbm) # boosting
+#Set seed for reproducibility (needed throughout)
+set.seed(577)
+#Load in training and test data
+Heart.Train<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_training.csv")
+Heart.Test<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_test.csv")
+#Set appropriate components as factors
+Heart.Train$sex<- as.factor(Heart.Train$sex)
+Heart.Train$cp<- as.factor(Heart.Train$cp)
+Heart.Train$fbs<- as.factor(Heart.Train$fbs)
+Heart.Train$exang<- as.factor(Heart.Train$exang)
+Heart.Train$restecg<- as.factor(Heart.Train$restecg)
+Heart.Test$sex<- as.factor(Heart.Test$sex)
+Heart.Test$cp<- as.factor(Heart.Test$cp)
+Heart.Test$fbs<- as.factor(Heart.Test$fbs)
+Heart.Test$exang<- as.factor(Heart.Test$exang)
+Heart.Test$restecg<- as.factor(Heart.Test$restecg)
+
+#Start with boosting method:
+#Parameters: let's do n=5000 trees, lambda=0.1, and d=1 (based on lab/notes)
+#Also, because this is classification, we will do distribution=Bernoulli
+#Fit boosted tree
+boost_Heart<- gbm(target~ ., data = Heart.Train, n.trees = 5000, 
+                  shrinkage = 0.01, interaction.depth = 1, 
+                  distribution = "bernoulli")
+#Estimate test error rate through confusion matrix
+confusion_boost.Heart <- table(pred = predict(boost_Heart, 
+                                              newdata= Heart.Test, 
+                                              type = "response") > 0.5, 
+                               true = Heart.Test$target)
+#Show boosting confusion matrix
+confusion_boost.Heart
+#Compute boosting test error rate
+(confusion_boost.Heart[1,2] + confusion_boost.Heart[2,1])/
+  sum(confusion_boost.Heart)
+#Boosting test error rate= 0.1833
+
+#Next, let's do bagging:
+#Perform bagging
+bag_Heart<- randomForest(target~., data = Heart.Train, 
+                         mtry= ncol(Heart.Train)-1, importance=TRUE)
+#Estimate test error rate through confusion matrix
+confusion_bag.Heart<- table(pred = predict(bag_Heart, newdata= Heart.Test, 
+                                           type = "response")>0.5, 
+                            true = Heart.Test$target)
+
+#Show bagging confusion matrix
+confusion_bag.Heart
+#Computing bagging test error rate
+## test error rate
+(confusion_bag.Heart[1, 2] + confusion_bag.Heart[2, 1])/
+  sum(confusion_bag.Heart)
+#Yields same results as boosting, test error rate of 0.1833
+
+#Finally, perform random forest.
+#Perform random forest
+rf_Heart<- randomForest(target~., data = Heart.Train, 
+                         mtry= sqrt(ncol(Heart.Train)-1), importance=TRUE)
+#Estimate test error rate through confusion matrix
+confusion_rf.Heart<- table(pred = predict(rf_Heart, newdata= Heart.Test, 
+                                           type = "response")>0.5, 
+                            true = Heart.Test$target)
+
+#Show bagging confusion matrix
+confusion_rf.Heart
+#Computing bagging test error rate
+## test error rate
+(confusion_rf.Heart[1, 2] + confusion_rf.Heart[2, 1])/
+  sum(confusion_rf.Heart)
+#Test error rate for this is 0.20, a little higher than boosting and bagging.
+```
+
+The boosting (B=5000, lambda=0.01, d=1 based on notes) and bagging methods both yielded test error rates of 0.1833, or accuracy of about 0.8167. The random forest method yielded a test error rate of 0.20/ accuracy of 0.80. Out of these three methods, we would prefer the boosting or bagging method. Referring back to the optimized logistic regression for this data by adjusting the predictors and threshold, the highest accuracy obtained matched that of bagging and boosting, so these methods were very successful. This also matched the accuracy/test error rate from another multiple logistic regression performed on the data.
+
+
+Join the training and test data sets. Using the full data, estimate three logistic regression models with target as the response and thalach as the predictor.
+ (i) log-odds as a linear function of thalach (i.e., the usual logistic reg model)
+ (ii) log-odds using a natural spline with df = 2
+ (iii) log-odds using a natural spline with df = 6
+Fit each of these models, then plot the fits of each on the same figure.
+
+```{r}
+#Start by loading the data
+library(splines)
+Heart.Train<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_training.csv")
+Heart.Test<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/heart_test.csv")
+Heart.Total<- rbind(Heart.Train, Heart.Test)
+#Treat variables sex, cp, fps, exang and restecg as factors
+Heart.Total$sex<- as.factor(Heart.Total$sex)
+Heart.Total$cp<- as.factor(Heart.Total$cp)
+Heart.Total$fbs<- as.factor(Heart.Total$fbs)
+Heart.Total$exang<- as.factor(Heart.Total$exang)
+Heart.Total$restecg<- as.factor(Heart.Total$restecg)
+#Estimate the 3 models:
+#log-odds as a linear function of thalach
+glm.heart.linear<- glm(target~ thalach, family = "binomial", 
+                       data = Heart.Total)
+#log-odds using a natural spline with df = 2
+glm.heart.ns.df2<- glm(target~ ns(thalach, df=2), family = "binomial", 
+                       data = Heart.Total)
+#log-odds using a natural spline with df = 6
+glm.heart.ns.df6<- glm(target~ ns(thalach, df=6), family = "binomial", 
+                       data = Heart.Total)
+#Create a grid of x values for the plot
+thalach.grid<- data.frame(thalach= seq(min(Heart.Total$thalach), 
+                                   max(Heart.Total$thalach), 
+                                   length.out=1000))
+#Use ggplot to plot the fits on the same figure
+ggplot() +
+  #add the different fit lines using the predict function and geom_line
+  geom_line(aes(thalach.grid$thalach, 
+                predict(glm.heart.linear, thalach.grid)), color="red") +
+  geom_line(aes(thalach.grid$thalach, 
+                predict(glm.heart.ns.df2, thalach.grid)), color="blue") +
+  geom_line(aes(thalach.grid$thalach, 
+                predict(glm.heart.ns.df6, thalach.grid)), color="orange")+
+  #Specify which model the predictions came from
+  labs(title = "linear is red, ns df=2 is blue, ns df=6 is orange") +
+  xlab("thalach") + ylab("estimated probability")
+```
+
+Explore different models for predicting heart disease and evaluate them using leave one out cross validation. Report the final model and the resulting LOOCV accuracy.
+```{r, eval=TRUE}
+library(mgcv)
+
+nobs <- nrow(Heart.Total)
+    
+#LOOCV
+pred_cat <- rep(NA, nobs)
+for(i in 1:nobs){
+  gamfit <- gam(target ~ age + sex + cp + trestbps + chol + fbs + restecg + 
+                  thalach + exang + oldpeak + slope + ca + thal,
+                data = Heart.Total[-i,], family = binomial)
+  phat <- predict(gamfit, newdata = Heart.Total[i,], type = "response")
+  pred_cat[i] <- round(phat)
+}
+cv_accur <- mean(pred_cat == Heart.Total$target)
+cv_accur
+#Let's try first fitting with only 9 of the predictors as in HW4
+pred_cat1 <- rep(NA, nobs)
+for(i in 1:nobs){
+  gamfit1 <- gam(target ~ age + sex + cp + trestbps + thalach + exang +
+                  oldpeak + ca + thal,
+                data = Heart.Total[-i,], family = binomial)
+  phat1 <- predict(gamfit1, newdata = Heart.Total[i,], type = "response")
+  pred_cat1[i] <- round(phat1)
+}
+cv_accur1 <- mean(pred_cat1 == Heart.Total$target)
+cv_accur1
+#Try fitting less predictors- sex, cp, exang, oldpeak, ca, and thal 
+#Were most significant from HW2
+pred_cat2 <- rep(NA, nobs)
+for(i in 1:nobs){
+  gamfit2 <- gam(target ~ sex + cp + exang + oldpeak + ca + thal,
+                data = Heart.Total[-i,], family = binomial)
+  phat2 <- predict(gamfit2, newdata = Heart.Total[i,], type = "response")
+  pred_cat2[i] <- round(phat2)
+}
+cv_accur2 <- mean(pred_cat2 == Heart.Total$target)
+cv_accur2
+#Middle model is most accurate, lets try using some natural splines 
+#for the middle model's continuous predictors
+#Start with df=2, then try df=6 and df=`10
+pred_cat3 <- rep(NA, nobs)
+for(i in 1:nobs){
+  gamfit3 <- gam(target ~ ns(age, df=2) + sex + cp + ns(trestbps, df=2) + 
+                   ns(thalach, df=2) + exang + ns(oldpeak, df=2) + 
+                   ca + ns(thal,df=2),
+                data = Heart.Total[-i,], family = binomial)
+  phat3 <- predict(gamfit3, newdata = Heart.Total[i,], type = "response")
+  pred_cat3[i] <- round(phat3)
+}
+cv_accur3 <- mean(pred_cat3 == Heart.Total$target)
+cv_accur3
+#improved 
+```
+Therefore, we conclude our optimal accuracy comes from gamfit3 (fourth output here), which involves 9 predictors, fitting a natural spline with 2 degrees of freedom for each  predictor, yielding an accuracy of 84.5%.
+
